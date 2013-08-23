@@ -24,3 +24,9 @@ DL = '''<dl>
 		<dd>{{ item.1 }}</dd>
 	{% endfor %}
 </dl>'''
+
+SELECT = '''<select>
+	{% for item in qs %}
+		<option value="{{ item.id }}">{{ item }}</option>
+	{% endfor %}
+</select>'''

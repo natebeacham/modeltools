@@ -3,16 +3,14 @@ import threading
 from django.db.models import Model, Count
 from django.db.models.query import QuerySet
 
-from . import html
+from . import html, utils
 
 ##########################################
-
 
 def _serialize(model):
 	return dict(
 		(f.name, getattr(model, f.name)) for f in model.__class__._meta._fields()
 	)
-
 
 ##########################################
 
@@ -22,6 +20,27 @@ def aggregate_count(qs, field):
 def annotate_count(qs, field):
 	for item in qs.annotate(count=Count(field)).iterator():
 		yield item.count
+
+def cycle(qs):
+	'''
+	Alias for `loop`
+	'''
+	return loop(qs)
+
+def dropwhile(func, qs):
+	'''
+	Drops elements from the left that match `func`
+	then returns a slice
+	'''
+	index = 0
+
+	for item in qs.iterator():
+		if func(item):
+			index += 1
+			continue
+		break
+
+	return qs[index:]
 
 def each(qs, func, threaded=False, daemon=False, *extraargs, **extrakwargs):
 	'''
@@ -39,6 +58,15 @@ def each(qs, func, threaded=False, daemon=False, *extraargs, **extrakwargs):
 	else:
 		run(*extraargs, **extrakwargs)
 
+def garnish(qs, name, func):
+	'''
+	Applies `func` against each element in a QuerySet and sets it as `name` on the
+	element.
+	'''
+	for item in qs.iterator():
+		setattr(item, key, func(item))
+		yield item
+
 def get(qs, latest_field='id', **kwargs):
 	'''
 	Tries to get a single item from the QuerySet
@@ -49,11 +77,27 @@ def get(qs, latest_field='id', **kwargs):
 	except Model.DoesNotExist:
 		return qs.filter(**kwargs).latest(latest_field)
 
+def groupby(qs, field):
+	for value in pluck(qs, field):
+		yield value, qs.filter(**{field: value}).iterator()
+
 def is_evaluated(qs):
 	'''
 	Determines whether a QuerySet has been un-lazied yet
 	'''
 	return bool(getattr(qs, '_result_cache'))
+
+def juice(qs, *fields):
+	if len(fields) == 0:
+		fields = [f.name for f in qs.model._meta.fields]
+
+	return utils.JuicedDict(qs, *fields)
+
+def loop(qs):
+	'''
+	Returns an infinitely looping iterable of the QuerySet
+	'''
+	return utils.LoopIter(qs)
 
 def map(qs, func, *extraargs, **extrakwargs):
 	'''
@@ -83,6 +127,19 @@ def reduce(qs, func, initializer=None):
 	'''
 	return reduce(func, qs.iterator(), initializer=initializer)
 
+def season(qs, **attrs):
+	'''
+	Adds the properties defined in `attrs` to each element in the QuerySet.
+	If a property is a callable, it will be applied against the element.
+	'''
+	for item in qs.iterator():
+		for key, value in attrs.items():
+			if callable(value):
+				setattr(item, key, value(item))
+				continue
+			setattr(item, key, value)
+		yield item
+
 def serialize(qs_or_model):
 	'''
 	Attempts to intelligently build a dictionary for each item
@@ -95,7 +152,40 @@ def serialize(qs_or_model):
 
 	raise Exception('Need a Model or QuerySet')
 
+def supplement(qs, replace_value=None, **attrs):
+	'''
+	Replaces attributes defined in `attrs` with the given values
+	if their value is that of `replace_value`
+	'''
+	for item in qs.iterator():
+		for key, value in attrs.items():
+			if getattr(item, key, replace_value) == replace_value:
+				if callable(value):
+					setattr(item, key, value(item))
+					continue
+				setattr(item, key, value)
+		yield item
+
+def takewhile(func, qs):
+	'''
+	Takes elements from the left that match `func`
+	then returns a slice
+	'''
+	index = 0
+
+	for item in qs.iterator():
+		if func(item):
+			index += 1
+			continue
+		break
+
+	return qs[:index]
+
 def update_or_create(model, defaults=None, **kwargs):
+	'''
+	Gets or creates an element with `kwargs` and `defaults`. If a new
+	element is created, updates it with values of `defaults`
+	'''
 	defaults = defaults or {}
 
 	item, created = models.objects.get_or_create(defaults=defaults, **kwargs)
@@ -107,3 +197,8 @@ def update_or_create(model, defaults=None, **kwargs):
 
 	return item, created
 
+def values(qs, attr, unique=True):
+	'''
+	Alias for `pluck`
+	'''
+	return pluck(qs, attr, unique=unique)

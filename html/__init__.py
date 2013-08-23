@@ -17,6 +17,12 @@ def table(qs):
 			'headers': headers,
 		}))
 
+def select(qs):
+	return template.Template(templates.SELECT)\
+		.render(template.Context({
+			'qs': qs.iterator(),
+		}))
+
 def dl(qs, term, definition):
 	def format(qs):
 		for item in qs:

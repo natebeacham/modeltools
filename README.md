@@ -1,4 +1,5 @@
-modeltools
-==========
+### modeltools
 
-Helper for working with Django QuerySet
+***
+
+Helpers for working with Django QuerySets

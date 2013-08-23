@@ -58,13 +58,17 @@ def each(qs, func, threaded=False, daemon=False, *extraargs, **extrakwargs):
 	else:
 		run(*extraargs, **extrakwargs)
 
-def garnish(qs, name, func):
+def garnish(qs, name, func_or_value):
 	'''
-	Applies `func` against each element in a QuerySet and sets it as `name` on the
+	Applies `func_or_value` against each element in a QuerySet and sets it as `name` on the
 	element.
 	'''
 	for item in qs.iterator():
-		setattr(item, key, func(item))
+		if callable(func_or_value):
+			setattr(item, key, func_or_value(item))
+		else:
+			setattr(item, key, func_or_value)
+
 		yield item
 
 def get(qs, latest_field='id', **kwargs):
@@ -88,6 +92,10 @@ def is_evaluated(qs):
 	return bool(getattr(qs, '_result_cache'))
 
 def juice(qs, *fields):
+	'''
+	Returns a dictionary, of which keys are field names and values are
+	lists of that field's values in `qs`
+	'''
 	if len(fields) == 0:
 		fields = [f.name for f in qs.model._meta.fields]
 

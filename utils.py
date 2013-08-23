@@ -18,6 +18,10 @@ class JuicedDict(object):
 		self.__qs = qs
 		self.__fields = fields
 
+	def __iter__(self):
+		for field in self.__fields:
+			yield field
+
 	def __getitem__(self, key):
 		if key not in self.__fields:
 			raise KeyError, key
